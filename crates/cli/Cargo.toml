@@ -1,0 +1,19 @@
+[package]
+name = "agentlink-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "agentlink"
+path = "src/main.rs"
+
+[dependencies]
+agentlink-core = { path = "../core" }
+agentlink-daemon = { path = "../daemon" }
+agentlink-mcp = { path = "../mcp" }
+clap = { version = "4", features = ["derive"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

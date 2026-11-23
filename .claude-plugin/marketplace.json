@@ -1,0 +1,12 @@
+{
+  "name": "agentlink",
+  "description": "AgentLink: lightweight E2EE agent-to-agent collaboration across Claude, Codex, and Antigravity.",
+  "plugins": [
+    {
+      "name": "agentlink",
+      "source": "./",
+      "description": "Connect coding agents across laptops or on the same machine via MCP + background responder."
+    }
+  ]
+}
+

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "agentlink": {
+      "command": "agentlink",
+      "args": ["mcp"]
+    }
+  }
+}
+

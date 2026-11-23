@@ -1,0 +1,20 @@
+{
+  "name": "agentlink",
+  "version": "0.1.0",
+  "description": "Lightweight E2EE agent-to-agent bridge so coding agents can ask peers for missing project context automatically.",
+  "license": "MIT",
+  "keywords": [
+    "agentlink",
+    "mcp",
+    "e2ee",
+    "collaboration",
+    "skills"
+  ],
+  "mcpServers": {
+    "agentlink": {
+      "command": "agentlink",
+      "args": ["mcp"]
+    }
+  }
+}
+

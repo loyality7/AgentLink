@@ -5,6 +5,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use agentlink_core::protocol::{generate_pairing_code, PairingBundle};
 use agentlink_daemon::{
     config::AgentLinkHome,
+    ensure_daemon_running,
     relay_client::{fetch_pairing, publish_pairing},
     start_daemon,
     store::Store,
@@ -258,18 +259,21 @@ async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             name,
             no_wait,
         } => {
+            let _ = ensure_daemon_running(&home).await;
             let id = home.load_identity()?;
             let cfg = home.load_config()?;
             let store = Store::open(&home.db_path())?;
             let code = generate_pairing_code();
+            let expires_at = now_unix_u64() + 600;
             let bundle = PairingBundle {
                 v: 1,
                 code: code.clone(),
                 peer: id.to_public(),
                 project,
-                expires_at: now_unix_u64() + 600,
+                expires_at,
             };
             publish_pairing(&cfg.relay_url, &bundle).await?;
+            store.save_pending_pair(&code, &name, expires_at as i64)?;
             println!("Copy and send the following message to your friend (they can paste it directly into their agent):\n");
             println!(
                 "Hey agent — please connect to {} on AgentLink. Make sure `agentlink` is installed and initialized with relay `{}`, then run:\n  agentlink join {} --name {} --project .\nOnce done, let me know we're paired!",
@@ -277,29 +281,7 @@ async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             );
             println!();
             if !no_wait {
-                println!("Waiting for peer to run `agentlink join {code} --name <you>`...");
-                let ack_code = format!("{code}:ack");
-                for _ in 0..120 {
-                    if let Some(peer_bundle) = fetch_pairing(&cfg.relay_url, &ack_code).await? {
-                        let peer_name = if name == "peer" {
-                            peer_bundle.peer.display_name.clone()
-                        } else {
-                            name.clone()
-                        };
-                        store.upsert_peer(
-                            &peer_bundle.peer,
-                            &peer_name,
-                            peer_bundle.project.as_deref(),
-                        )?;
-                        println!(
-                            "Paired with '{}' ({})",
-                            peer_name, peer_bundle.peer.peer_id
-                        );
-                        return Ok(());
-                    }
-                    tokio::time::sleep(Duration::from_secs(2)).await;
-                }
-                eprintln!("Timed out waiting for peer acknowledgement.");
+                println!("Your background daemon is watching for your friend to join (you can close this terminal).");
             }
         }
         Commands::Join {
@@ -326,6 +308,7 @@ async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             println!("Paired with '{}' ({})", name, peer_bundle.peer.peer_id);
         }
         Commands::Peers => {
+            ensure_daemon_running(&home).await?;
             let cfg = home.load_config()?;
             let token = home.load_token()?;
             let url = format!("http://127.0.0.1:{}/peers", cfg.listen_port);
@@ -342,6 +325,7 @@ async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             wait,
             project,
         } => {
+            ensure_daemon_running(&home).await?;
             let cfg = home.load_config()?;
             let token = home.load_token()?;
             let url = format!("http://127.0.0.1:{}/ask", cfg.listen_port);
@@ -363,6 +347,7 @@ async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             body,
             requires_human,
         } => {
+            ensure_daemon_running(&home).await?;
             let cfg = home.load_config()?;
             let token = home.load_token()?;
             let url = format!("http://127.0.0.1:{}/reply", cfg.listen_port);
@@ -379,6 +364,7 @@ async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             println!("{}", resp.text().await?);
         }
         Commands::Inbox { unread, thread } => {
+            ensure_daemon_running(&home).await?;
             let cfg = home.load_config()?;
             let token = home.load_token()?;
             let mut url = format!(

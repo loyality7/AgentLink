@@ -130,8 +130,8 @@ pub async fn run_relay_loop(
                     }
                 }
 
-                // Active bidirectional loop + periodic outbox retry
-                let mut retry_tick = tokio::time::interval(Duration::from_secs(15));
+                // Active bidirectional loop + periodic outbox retry & pending_pairs check
+                let mut retry_tick = tokio::time::interval(Duration::from_secs(5));
                 retry_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
                 loop {
@@ -151,6 +151,26 @@ pub async fn run_relay_loop(
                                             let _ = store.delete_outbox(&env.id);
                                         } else {
                                             break;
+                                        }
+                                    }
+                                }
+                            }
+                            if let Ok(pairs) = store.list_pending_pairs() {
+                                for (code, peer_name, _) in pairs {
+                                    let ack_code = format!("{code}:ack");
+                                    if let Ok(Some(bundle)) = fetch_pairing(&relay_url, &ack_code).await {
+                                        let name = if peer_name == "peer" {
+                                            bundle.peer.display_name.clone()
+                                        } else {
+                                            peer_name.clone()
+                                        };
+                                        if store.upsert_peer(&bundle.peer, &name, bundle.project.as_deref()).is_ok() {
+                                            let _ = store.delete_pending_pair(&code);
+                                            crate::responder::notify_human(
+                                                "AgentLink: Peer Paired",
+                                                &format!("Connected with {name}"),
+                                            );
+                                            info!("background pair completed with '{name}' ({})", bundle.peer.peer_id);
                                         }
                                     }
                                 }

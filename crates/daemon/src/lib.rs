@@ -95,3 +95,57 @@ pub async fn start_daemon(home: &AgentLinkHome, port_override: Option<u16>) -> R
         shutdown: shutdown_tx,
     })
 }
+
+/// Spawn `agentlink daemon start` in the background if it is not already listening.
+pub async fn ensure_daemon_running(home: &AgentLinkHome) -> Result<()> {
+    let cfg = home.load_config()?;
+    let token = home.load_token()?;
+    let url = format!("http://127.0.0.1:{}/health", cfg.listen_port);
+    let client = reqwest::Client::new();
+
+    if let Ok(r) = client
+        .get(&url)
+        .bearer_auth(&token)
+        .timeout(std::time::Duration::from_millis(300))
+        .send()
+        .await
+    {
+        if r.status().is_success() {
+            return Ok(());
+        }
+    }
+
+    let exe = std::env::current_exe().map_err(crate::error::DaemonError::Io)?;
+    let mut cmd = std::process::Command::new(exe);
+    cmd.args(["daemon", "start"])
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        const DETACHED_PROCESS: u32 = 0x0000_0008;
+        cmd.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
+    }
+    cmd.spawn()?;
+
+    for _ in 0..30 {
+        if let Ok(r) = client
+            .get(&url)
+            .bearer_auth(&token)
+            .timeout(std::time::Duration::from_millis(300))
+            .send()
+            .await
+        {
+            if r.status().is_success() {
+                return Ok(());
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+
+    Err(crate::error::DaemonError::Other(
+        "daemon spawned but did not become ready in time".into(),
+    ))
+}

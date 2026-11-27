@@ -196,6 +196,88 @@ pub fn run_setup(home_dir: &Path, dry_run: bool) -> Result<Vec<SetupResult>, Box
         path: antigravity,
     });
 
+    // 5. OS Login Auto-Start so daemon is always running
+    results.push(register_autostart(home_dir, &exe, dry_run)?);
+
     Ok(results)
+}
+
+fn register_autostart(
+    home_dir: &Path,
+    exe: &str,
+    dry_run: bool,
+) -> Result<SetupResult, Box<dyn std::error::Error>> {
+    if cfg!(target_os = "windows") {
+        let reg_path = PathBuf::from("HKCU\\Software\\Microsoft\\CurrentVersion\\Run\\AgentLink");
+        if !dry_run {
+            let val = format!("\"{exe}\" daemon start --background");
+            let _ = std::process::Command::new("reg")
+                .args([
+                    "add",
+                    "HKCU\\Software\\Microsoft\\CurrentVersion\\Run",
+                    "/v",
+                    "AgentLink",
+                    "/t",
+                    "REG_SZ",
+                    "/d",
+                    &val,
+                    "/f",
+                ])
+                .status();
+        }
+        Ok(SetupResult {
+            target: "Auto-Start".into(),
+            status: if dry_run { "would update".into() } else { "configured".into() },
+            path: reg_path,
+        })
+    } else if cfg!(target_os = "macos") {
+        let plist = home_dir
+            .join("Library")
+            .join("LaunchAgents")
+            .join("com.agentlink.daemon.plist");
+        if !dry_run {
+            if let Some(p) = plist.parent() {
+                fs::create_dir_all(p)?;
+            }
+            let content = format!(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+                 <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n\
+                 <plist version=\"1.0\"><dict>\n\
+                 <key>Label</key><string>com.agentlink.daemon</string>\n\
+                 <key>ProgramArguments</key><array><string>{exe}</string><string>daemon</string><string>start</string></array>\n\
+                 <key>RunAtLoad</key><true/>\n\
+                 <key>KeepAlive</key><true/>\n\
+                 </dict></plist>\n"
+            );
+            fs::write(&plist, content)?;
+        }
+        Ok(SetupResult {
+            target: "Auto-Start".into(),
+            status: if dry_run { "would update".into() } else { "configured".into() },
+            path: plist,
+        })
+    } else {
+        let unit = home_dir
+            .join(".config")
+            .join("systemd")
+            .join("user")
+            .join("agentlink.service");
+        if !dry_run {
+            if let Some(p) = unit.parent() {
+                fs::create_dir_all(p)?;
+            }
+            let content = format!(
+                "[Unit]\nDescription=AgentLink Daemon\nAfter=network-online.target\n\n\
+                 [Service]\nExecStart={exe} daemon start\nRestart=always\nRestartSec=3\n\n\
+                 [Install]\nWantedBy=default.target\n"
+            );
+            fs::write(&unit, content)?;
+        }
+        Ok(SetupResult {
+            target: "Auto-Start".into(),
+            status: if dry_run { "would update".into() } else { "configured".into() },
+            path: unit,
+        })
+    }
 }
 

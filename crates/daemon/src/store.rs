@@ -123,6 +123,11 @@ impl Store {
                 members_json TEXT NOT NULL,
                 created_at INTEGER NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS pending_pairs (
+                code TEXT PRIMARY KEY,
+                peer_name TEXT NOT NULL,
+                expires_at INTEGER NOT NULL
+            );
             ",
         )?;
         let _ = conn.execute("ALTER TABLE messages ADD COLUMN group_id TEXT", []);
@@ -426,6 +431,30 @@ impl Store {
             })
         })?;
         Ok(rows.collect::<std::result::Result<Vec<_>, _>>()?)
+    }
+
+    pub fn save_pending_pair(&self, code: &str, peer_name: &str, expires_at: i64) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT OR REPLACE INTO pending_pairs (code, peer_name, expires_at) VALUES (?1, ?2, ?3)",
+            params![code, peer_name, expires_at],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_pending_pairs(&self) -> Result<Vec<(String, String, i64)>> {
+        let conn = self.conn.lock().unwrap();
+        let now = now_unix();
+        conn.execute("DELETE FROM pending_pairs WHERE expires_at < ?1", params![now])?;
+        let mut stmt = conn.prepare("SELECT code, peer_name, expires_at FROM pending_pairs")?;
+        let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?;
+        Ok(rows.collect::<std::result::Result<Vec<_>, _>>()?)
+    }
+
+    pub fn delete_pending_pair(&self, code: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM pending_pairs WHERE code = ?1", params![code])?;
+        Ok(())
     }
 }
 

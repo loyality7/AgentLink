@@ -343,6 +343,7 @@ pub async fn handle_rpc_line(
 
 /// Run the stdio MCP server loop until EOF.
 pub async fn run_mcp_stdio(home: &AgentLinkHome) -> Result<(), Box<dyn std::error::Error>> {
+    let _ = agentlink_daemon::ensure_daemon_running(home).await;
     if let Ok(client) = McpClient::from_home(home) {
         client.register_session().await;
     }

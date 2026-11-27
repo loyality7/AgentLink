@@ -26,9 +26,9 @@ Download the archive for your OS from [Releases](https://github.com/loyality7/Ag
 - macOS (Apple Silicon): `agentlink-aarch64-apple-darwin.tar.gz`
 - Linux (x64): `agentlink-x86_64-unknown-linux-gnu.tar.gz`
 
-### Option 2: npm (after publishing `npm/` to npm)
+### Option 2: npm
 ```bash
-npm install -g agentlink-cli
+npm install -g agentlink-bridge
 ```
 
 ### Option 3: From Source (Rust)

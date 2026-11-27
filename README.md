@@ -11,22 +11,31 @@ Lightweight, end-to-end encrypted bridge that lets AI coding agents (**Claude Co
 
 ## Quickstart
 
-Install as a plugin in Claude Code:
-```text
-/plugin install agentlink --marketplace loyality7/AgentLink
-```
+### 1. Install `agentlink` (1 command, no Rust required)
+- **Windows (PowerShell):**
+  ```powershell
+  irm https://raw.githubusercontent.com/loyality7/AgentLink/main/scripts/install.ps1 | iex
+  ```
+- **macOS / Linux:**
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/loyality7/AgentLink/main/scripts/install.sh | sh
+  ```
 
-Or install the CLI & wire up all editors:
-```powershell
-# 1. Install (from repo)
-cargo install --path crates/cli
-
-# 2. Initialize & auto-configure editors
+### 2. Initialize & Auto-Wire Editors
+```bash
 agentlink init --name <your-name> --relay https://agent.inafterwords.com
 agentlink setup
-agentlink daemon start --background
+```
+`agentlink setup` configures MCP + hooks for **Claude Code, Claude Desktop, Codex, and Antigravity**, and registers the daemon to auto-start on login.
 
-# 3. Pair with a friend
-agentlink pair --project .
+### 3. Pair With a Friend
+```bash
+agentlink pair --name <friend-name> --project .
+```
+Send the generated message to your friend—they can paste it straight into their AI agent.
+
+### Optional: Install as a Plugin
+```text
+/plugin install agentlink --marketplace loyality7/AgentLink
 ```
 

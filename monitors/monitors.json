@@ -1,0 +1,11 @@
+{
+  "monitors": [
+    {
+      "name": "agentlink-inbox",
+      "command": "agentlink monitor",
+      "description": "Streams incoming AgentLink peer messages into the active Claude Code session.",
+      "when": "on-session-start"
+    }
+  ]
+}
+

@@ -85,6 +85,8 @@ enum Commands {
         #[arg(long, default_value = "json")]
         format: String,
     },
+    /// Stream unread incoming messages as JSON lines (used by Claude Code Monitor)
+    Monitor,
     /// Run the stdio MCP server (for Claude, Codex, Antigravity)
     Mcp,
     /// Auto-register AgentLink MCP in Claude Code, Claude Desktop, Codex, and Antigravity
@@ -147,6 +149,14 @@ fn now_unix_u64() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
+}
+
+fn resolve_project_arg(project: Option<String>) -> Option<String> {
+    project.map(|p| {
+        std::fs::canonicalize(&p)
+            .map(|abs| abs.to_string_lossy().to_string())
+            .unwrap_or(p)
+    })
 }
 
 #[tokio::main]
@@ -269,7 +279,7 @@ async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 v: 1,
                 code: code.clone(),
                 peer: id.to_public(),
-                project,
+                project: resolve_project_arg(project),
                 expires_at,
             };
             publish_pairing(&cfg.relay_url, &bundle).await?;
@@ -295,13 +305,14 @@ async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             let peer_bundle = fetch_pairing(&cfg.relay_url, &code)
                 .await?
                 .ok_or("pairing code not found or expired")?;
-            store.upsert_peer(&peer_bundle.peer, &name, peer_bundle.project.as_deref())?;
+            let local_project = resolve_project_arg(project).or(peer_bundle.project.clone());
+            store.upsert_peer(&peer_bundle.peer, &name, local_project.as_deref())?;
 
             let ack_bundle = PairingBundle {
                 v: 1,
                 code: format!("{code}:ack"),
                 peer: id.to_public(),
-                project,
+                project: local_project,
                 expires_at: now_unix_u64() + 600,
             };
             publish_pairing(&cfg.relay_url, &ack_bundle).await?;
@@ -438,6 +449,31 @@ async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                 }
+            }
+        }
+        Commands::Monitor => {
+            let _ = ensure_daemon_running(&home).await;
+            let cfg = home.load_config()?;
+            let token = home.load_token()?;
+            let client = reqwest::Client::new();
+            loop {
+                let url = format!("http://127.0.0.1:{}/inbox?unread=1", cfg.listen_port);
+                if let Ok(resp) = client.get(&url).bearer_auth(&token).send().await {
+                    if let Ok(msgs) = resp.json::<Vec<serde_json::Value>>().await {
+                        for m in msgs {
+                            println!("{}", serde_json::to_string(&m)?);
+                            if let Some(id) = m.get("id").and_then(|v| v.as_str()) {
+                                let _ = client
+                                    .post(format!("http://127.0.0.1:{}/inbox/ack", cfg.listen_port))
+                                    .bearer_auth(&token)
+                                    .json(&serde_json::json!({ "msg_id": id }))
+                                    .send()
+                                    .await;
+                            }
+                        }
+                    }
+                }
+                tokio::time::sleep(Duration::from_secs(2)).await;
             }
         }
         Commands::Mcp => {

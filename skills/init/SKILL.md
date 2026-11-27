@@ -6,10 +6,9 @@ description: Set up AgentLink on this machine (install binary if missing, initia
 # AgentLink Init
 
 1. Check if `agentlink` is installed (`agentlink --version`).
-   - If missing, install it:
-     - From a local repo checkout: `cargo install --path crates/cli`
-     - Or on Windows: `irm https://raw.githubusercontent.com/<repo>/main/scripts/install.ps1 | iex`
-     - Or on macOS/Linux: `curl -fsSL https://raw.githubusercontent.com/<repo>/main/scripts/install.sh | sh`
+   - If missing, install it from a trusted source:
+     - `npm install -g agentlink-cli` (or `cargo install --git https://github.com/loyality7/AgentLink agentlink-cli`)
+     - Or download the prebuilt archive from `https://github.com/loyality7/AgentLink/releases/latest`.
 2. Ask the user for their display name (e.g. `alice`) and relay URL if not yet initialized, then run:
    ```bash
    agentlink init --name <name> --relay <relay_url>

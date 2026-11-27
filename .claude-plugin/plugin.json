@@ -16,8 +16,9 @@
   "mcpServers": {
     "agentlink": {
       "command": "agentlink",
-      "args": ["mcp"]
+      "args": [
+        "mcp"
+      ]
     }
   }
 }
-

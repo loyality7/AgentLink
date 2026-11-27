@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Lightweight E2EE agent-to-agent bridge so coding agents can ask peers for missing project context automatically.",
   "author": {
-    "name": "Sarath Babu"
+    "name": "C Sarath Babu"
   },
   "license": "MIT",
   "keywords": [

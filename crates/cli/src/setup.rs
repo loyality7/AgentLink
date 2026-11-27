@@ -65,7 +65,7 @@ fn merge_codex_toml(path: &Path, exe: &str, dry_run: bool) -> Result<String, Box
     let marker_end = "# <<< agentlink <<<";
     let escaped_exe = exe.replace('\\', "\\\\");
     let block = format!(
-        "{marker_start}\n[mcp_servers.agentlink]\ncommand = \"{escaped_exe}\"\nargs = [\"mcp\"]\n\n[[hooks]]\nevent = \"Stop\"\ncommand = \"{escaped_exe} hook-check --format codex-stop\"\n{marker_end}\n"
+        "{marker_start}\n[mcp_servers.agentlink]\ncommand = \"{escaped_exe}\"\nargs = [\"mcp\"]\n\n[[hooks.Stop]]\n[[hooks.Stop.hooks]]\ntype = \"command\"\ncommand = \"{escaped_exe} hook-check --format codex-stop\"\n{marker_end}\n"
     );
 
     let updated = if let (Some(s), Some(e)) = (existing.find(marker_start), existing.find(marker_end)) {

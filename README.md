@@ -1,41 +1,130 @@
 # AgentLink
 
-Lightweight, end-to-end encrypted bridge that lets AI coding agents (**Claude Code, Claude Desktop, Codex, Antigravity**) ask peers—or other agents on the same machine—for missing project context automatically.
+**End-to-end encrypted agent-to-agent bridge for AI coding assistants.**
 
-## Features
-- **Single native Rust binary (`agentlink`):** Cross-platform (Windows, macOS, Linux) with zero runtime dependencies.
-- **MCP-native + Skills:** Plugs into Claude Code, Claude Desktop, Codex, and Antigravity via `agentlink setup` or the plugin manifest.
-- **Background auto-responder + human escalation:** Answers read-only codebase/plan questions automatically (`claude -p --allowedTools Read,Glob,Grep` / `codex exec --sandbox read-only`) and notifies you (`needs_human`) only when human confirmation is required.
-- **Same-laptop & WhatsApp-style groups:** Route `local:<session>` directly over localhost, or create encrypted `group:<name>` rooms mixing remote peers and local sessions.
-- **Always-on free relay:** Runs on Cloudflare Workers + Durable Objects (`relay/`).
+AgentLink lets coding agents (**Claude Code, Claude Desktop, OpenAI Codex, and Antigravity**) ask peers—or other agents running on the same machine—for missing project context automatically, with human-in-the-loop escalation only when decisions are required.
 
-## Quickstart
+---
 
-### 1. Install `agentlink` (1 command, no Rust required)
-- **Windows (PowerShell):**
-  ```powershell
-  irm https://raw.githubusercontent.com/loyality7/AgentLink/main/scripts/install.ps1 | iex
-  ```
-- **macOS / Linux:**
-  ```bash
-  curl -fsSL https://raw.githubusercontent.com/loyality7/AgentLink/main/scripts/install.sh | sh
-  ```
+## Why AgentLink?
 
-### 2. Initialize & Auto-Wire Editors
+When developers collaborate with AI coding agents, one person often holds the broader architecture or spec while the other receives partial context. Instead of acting as a human copy-paste bridge:
+
+- **Cross-machine E2EE messaging:** Your agent asks your peer's agent directly over an untrusted WebSocket relay (`X25519` + `XChaCha20-Poly1305` + `Ed25519`).
+- **Background auto-responder + human escalation:** Routine codebase/plan questions are answered automatically in the background (read-only sandboxed `claude -p` or `codex exec`). Decisions, approvals, and sensitive topics trigger a desktop notification (`needs_human`).
+- **Same-laptop multi-agent routing:** Run two agents on your own machine (e.g., backend + frontend) and route between them over localhost in `<1 ms`.
+- **WhatsApp-style groups:** Create encrypted `group:<name>` rooms mixing remote peers and local sessions.
+- **Single native Rust binary:** Fast, lightweight (~5 MB idle RAM), zero runtime dependencies on Windows, macOS, and Linux.
+
+---
+
+## Installation
+
+### Windows (PowerShell)
+```powershell
+irm https://raw.githubusercontent.com/loyality7/AgentLink/main/scripts/install.ps1 | iex
+```
+
+### macOS / Linux
 ```bash
-agentlink init --name <your-name> --relay https://agent.inafterwords.com
+curl -fsSL https://raw.githubusercontent.com/loyality7/AgentLink/main/scripts/install.sh | sh
+```
+
+### From Source (Rust)
+```bash
+cargo install --git https://github.com/loyality7/AgentLink agentlink-cli
+```
+
+### Optional: Editor Plugin
+- **Claude Code:** `/plugin install agentlink --marketplace loyality7/AgentLink`
+- **Codex:** `codex plugin marketplace add loyality7/AgentLink && codex plugin add agentlink@agentlink`
+
+---
+
+## Setup
+
+### 1. Deploy Your Free Relay (One Time, ~1 Min)
+AgentLink uses a lightweight **Cloudflare Workers + Durable Objects** relay (free tier, always-on, stores only ciphertext until delivered):
+
+```bash
+cd relay
+npm install
+npx wrangler login
+npx wrangler deploy
+```
+
+Note your deployed relay URL (e.g. `https://your-relay.example.com`).
+
+### 2. Initialize & Configure Your Editors
+```bash
+agentlink init --name <your-name> --relay <YOUR_RELAY_URL>
 agentlink setup
 ```
-`agentlink setup` configures MCP + hooks for **Claude Code, Claude Desktop, Codex, and Antigravity**, and registers the daemon to auto-start on login.
 
-### 3. Pair With a Friend
+`agentlink setup` automatically:
+- Registers the `agentlink mcp` server in **Claude Code, Claude Desktop, Codex, and Antigravity**.
+- Configures live-session wake hooks (`UserPromptSubmit` / `Stop`) for Claude Code and Codex.
+- Registers the background daemon to auto-start on OS login.
+
+### 3. Pair With a Peer
 ```bash
-agentlink pair --name <friend-name> --project .
+agentlink pair --name <peer-name> --project .
 ```
-Send the generated message to your friend—they can paste it straight into their AI agent.
+Send the generated invite message to your peer. They paste it into their agent (or run `agentlink join <CODE> --name <your-name> --project .`), and both sides pin each other's public keys automatically.
 
-### Optional: Install as a Plugin
-```text
-/plugin install agentlink --marketplace loyality7/AgentLink
+---
+
+## MCP Tools
+
+Once configured, your AI agents have access to:
+- `list_peers` — List paired remote peers, active local sessions (`local:<name>`), and groups (`group:<name>`).
+- `ask_peer` — Ask a peer, local session, or group a question and optionally wait inline for the reply.
+- `reply_peer` — Reply to an incoming thread.
+- `check_inbox` — Read pending questions or replies.
+- `escalate_to_user` — Flag a thread as `needs_human` and trigger an OS desktop notification.
+
+---
+
+## Project Guardrails (`.agentlink.json`)
+
+Place `.agentlink.json` in a repository root to control what the background responder can read:
+
+```json
+{
+  "project": "my-app",
+  "mode": "auto",
+  "responder": "claude",
+  "allowed_paths": ["src/**", "docs/**", "README.md"],
+  "blocked_paths": [".env*", "**/*.pem", "**/*.key", "**/secrets/**"],
+  "max_hops": 5,
+  "require_human_for": [
+    "architecture changes",
+    "modifying or deleting files",
+    "sharing credentials or API keys"
+  ]
+}
 ```
 
+---
+
+## CLI Reference
+
+| Command | Description |
+| --- | --- |
+| `agentlink init --name <n> --relay <url>` | Create identity keys and local config |
+| `agentlink setup` | Configure MCP, editor hooks, and OS auto-start |
+| `agentlink pair --name <p> --project .` | Create an `AL-XXXX-XXXX` invite code and watch in background |
+| `agentlink join <code> --name <p>` | Redeem a peer's invite code |
+| `agentlink peers` | Show remote peers, local sessions, and groups |
+| `agentlink ask <target> "<question>"` | Ask a peer, `local:<session>`, or `group:<name>` |
+| `agentlink reply <thread_id> "<answer>"` | Reply to a thread |
+| `agentlink inbox [--unread]` | View messages |
+| `agentlink group create <name> --members a,b` | Create an encrypted group |
+| `agentlink block <peer>` / `unblock <peer>` | Drop messages from a peer before decryption |
+| `agentlink daemon start [--background] \| stop \| status` | Manage the background daemon |
+
+---
+
+## License
+
+MIT

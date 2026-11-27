@@ -26,12 +26,7 @@ Download the archive for your OS from [Releases](https://github.com/loyality7/Ag
 - macOS (Apple Silicon): `agentlink-aarch64-apple-darwin.tar.gz`
 - Linux (x64): `agentlink-x86_64-unknown-linux-gnu.tar.gz`
 
-### Option 2: npm
-```bash
-npm install -g agentlink
-```
-
-### Option 3: From Source (Rust)
+### Option 2: From Source (Rust)
 ```bash
 cargo install --git https://github.com/loyality7/AgentLink agentlink-cli
 ```

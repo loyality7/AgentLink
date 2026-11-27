@@ -128,4 +128,4 @@ Place `.agentlink.json` in a repository root to control what the background resp
 
 ## License
 
-MIT
+Apache-2.0 — see [LICENSE](LICENSE).

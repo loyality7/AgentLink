@@ -2,7 +2,7 @@
   "name": "@sarathbabuc/agentlink",
   "version": "0.1.3",
   "description": "Lightweight E2EE agent-to-agent bridge for Claude Code, Claude Desktop, Codex, and Antigravity.",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/loyality7/AgentLink.git"

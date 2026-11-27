@@ -1,6 +1,9 @@
 {
   "name": "agentlink",
   "description": "AgentLink: lightweight E2EE agent-to-agent collaboration across Claude, Codex, and Antigravity.",
+  "owner": {
+    "name": "Sarath Babu"
+  },
   "plugins": [
     {
       "name": "agentlink",

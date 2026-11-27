@@ -305,6 +305,7 @@ async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 expires_at: now_unix_u64() + 600,
             };
             publish_pairing(&cfg.relay_url, &ack_bundle).await?;
+            let _ = ensure_daemon_running(&home).await;
             println!("Paired with '{}' ({})", name, peer_bundle.peer.peer_id);
         }
         Commands::Peers => {
@@ -449,6 +450,9 @@ async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             let results = setup::run_setup(&home_dir, dry_run)?;
             for r in results {
                 println!("{:<16} {:<12} {}", r.target, r.status, r.path.display());
+            }
+            if !dry_run && home.is_initialized() {
+                let _ = ensure_daemon_running(&home).await;
             }
         }
         Commands::Block { peer } => {

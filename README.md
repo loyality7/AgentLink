@@ -20,13 +20,18 @@ When developers collaborate with AI coding agents, one person often holds the br
 
 ## Installation
 
-### Option 1: Prebuilt Binary (GitHub Releases — No Rust Required)
+### Option 1: npm (Recommended — No Rust Required)
+```bash
+npm install -g @sarathbabuc/agentlink
+```
+
+### Option 2: Prebuilt Binary (GitHub Releases)
 Download the archive for your OS from [Releases](https://github.com/loyality7/AgentLink/releases/latest) and place `agentlink` (or `agentlink.exe`) on your `PATH`:
 - Windows: `agentlink-x86_64-pc-windows-msvc.zip`
 - macOS (Apple Silicon): `agentlink-aarch64-apple-darwin.tar.gz`
 - Linux (x64): `agentlink-x86_64-unknown-linux-gnu.tar.gz`
 
-### Option 2: From Source (Rust)
+### Option 3: From Source (Rust)
 ```bash
 cargo install --git https://github.com/loyality7/AgentLink agentlink-cli
 ```

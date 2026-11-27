@@ -1,5 +1,5 @@
 {
-  "name": "agentlink-bridge",
+  "name": "agentlink",
   "version": "0.1.2",
   "description": "Lightweight E2EE agent-to-agent bridge for Claude Code, Claude Desktop, Codex, and Antigravity.",
   "license": "MIT",

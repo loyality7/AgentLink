@@ -28,7 +28,7 @@ Download the archive for your OS from [Releases](https://github.com/loyality7/Ag
 
 ### Option 2: npm
 ```bash
-npm install -g agentlink-bridge
+npm install -g agentlink
 ```
 
 ### Option 3: From Source (Rust)

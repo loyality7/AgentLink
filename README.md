@@ -10,6 +10,13 @@ Lightweight, end-to-end encrypted bridge that lets AI coding agents (**Claude Co
 - **Always-on free relay:** Runs on Cloudflare Workers + Durable Objects (`relay/`).
 
 ## Quickstart
+
+Install as a plugin in Claude Code:
+```text
+/plugin install agentlink --marketplace loyality7/AgentLink
+```
+
+Or install the CLI & wire up all editors:
 ```powershell
 # 1. Install (from repo)
 cargo install --path crates/cli

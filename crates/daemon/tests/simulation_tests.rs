@@ -835,3 +835,57 @@ async fn sim_whatsapp_group_chat_across_peers_and_local() {
     let _ = carol_d.shutdown.send(true);
 }
 
+#[tokio::test]
+async fn sim_local_session_background_auto_answers() {
+    let home_dir = TempDir::new().unwrap();
+    let home = AgentLinkHome::from_path(home_dir.path());
+    home.init("me", Some("http://127.0.0.1:9"), Some(0)).unwrap();
+
+    let mut cfg = home.load_config().unwrap();
+    cfg.responder_cmd = Some(write_mock_responder(
+        &home_dir,
+        r#"{"action":"answer","body":"Built with Astro + Tailwind","refs":["package.json"]}"#,
+    ));
+    std::fs::write(
+        home.config_path(),
+        serde_json::to_string_pretty(&cfg).unwrap(),
+    )
+    .unwrap();
+
+    let daemon = start_daemon(&home, Some(0)).await.unwrap();
+    let client = reqwest::Client::new();
+
+    client
+        .post(format!("http://{}/sessions/register", daemon.addr))
+        .bearer_auth(&daemon.token)
+        .json(&serde_json::json!({
+            "name": "site",
+            "agent_kind": "mcp-client",
+            "project_root": home_dir.path().to_string_lossy()
+        }))
+        .send()
+        .await
+        .unwrap();
+
+    let ask_resp: serde_json::Value = client
+        .post(format!("http://{}/ask", daemon.addr))
+        .bearer_auth(&daemon.token)
+        .json(&serde_json::json!({
+            "target": "local:site",
+            "question": "What framework is this site using?",
+            "from_session": "alaiy",
+            "wait_seconds": 5
+        }))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+
+    assert_eq!(ask_resp["status"], "answered");
+    assert_eq!(ask_resp["reply"]["body"], "Built with Astro + Tailwind");
+
+    let _ = daemon.shutdown.send(true);
+}
+

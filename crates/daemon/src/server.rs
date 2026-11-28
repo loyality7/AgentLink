@@ -295,6 +295,15 @@ async fn ask_peer(
             .insert_message(&msg, &format!("local:{from_label}"), &local_target_key, "in", "unread")
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
         let _ = state.notify_thread.send(thread_id.clone());
+        tokio::spawn(crate::responder::maybe_auto_respond_local(
+            state.config.clone(),
+            Arc::clone(&state.store),
+            state.notify_thread.clone(),
+            from_label.clone(),
+            local_target.name.clone(),
+            local_target.project_root.clone(),
+            msg.clone(),
+        ));
     } else if let Some(remote_peer) = state
         .store
         .get_peer(&req.target)

@@ -301,3 +301,133 @@ async fn send_reply(
     let _ = notify_thread.send(incoming.thread_id.clone());
     Ok(())
 }
+
+/// Handle an incoming local same-laptop message in the background.
+pub async fn maybe_auto_respond_local(
+    config: DaemonConfig,
+    store: Arc<Store>,
+    notify_thread: broadcast::Sender<String>,
+    from_label: String,
+    local_target_name: String,
+    project_root: String,
+    msg: AgentMessage,
+) {
+    if !matches!(msg.msg_type, MessageType::Question | MessageType::ClarificationNeeded) {
+        return;
+    }
+
+    let proj_cfg = load_project_config(Some(project_root.as_str()));
+
+    if !msg.can_auto_reply() || proj_cfg.mode == ResponderMode::AskHuman {
+        let _ = store.mark_thread_needs_human(&msg.thread_id);
+        notify_human(
+            &format!("AgentLink: Question from local:{from_label}"),
+            &msg.body,
+        );
+        let _ = send_local_reply(
+            &store,
+            &notify_thread,
+            &from_label,
+            &local_target_name,
+            &msg,
+            MessageType::PendingHuman,
+            true,
+            "Waiting for human confirmation.".to_string(),
+            Vec::new(),
+        );
+        return;
+    }
+
+    let prompt = build_prompt(&msg, &format!("local:{from_label}"), &proj_cfg);
+    let responder_kind = if !proj_cfg.responder.is_empty() {
+        proj_cfg.responder.as_str()
+    } else {
+        config.default_responder.as_str()
+    };
+
+    let Some(decision) = invoke_responder_cmd(
+        responder_kind,
+        config.responder_cmd.as_deref(),
+        Some(project_root.as_str()),
+        &prompt,
+    )
+    .await
+    else {
+        return;
+    };
+
+    if decision.action == "needs_human" {
+        let _ = store.mark_thread_needs_human(&msg.thread_id);
+        notify_human(
+            &format!("AgentLink: Needs your input (local:{from_label})"),
+            &decision.body,
+        );
+        let _ = send_local_reply(
+            &store,
+            &notify_thread,
+            &from_label,
+            &local_target_name,
+            &msg,
+            MessageType::PendingHuman,
+            true,
+            decision.body,
+            decision.refs,
+        );
+    } else {
+        info!(
+            "local background responder ({local_target_name}) auto-answered thread {}",
+            msg.thread_id
+        );
+        let _ = store.mark_read(&msg.id);
+        let _ = send_local_reply(
+            &store,
+            &notify_thread,
+            &from_label,
+            &local_target_name,
+            &msg,
+            MessageType::Answer,
+            false,
+            decision.body,
+            decision.refs,
+        );
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn send_local_reply(
+    store: &Arc<Store>,
+    notify_thread: &broadcast::Sender<String>,
+    from_label: &str,
+    local_target_name: &str,
+    incoming: &AgentMessage,
+    msg_type: MessageType,
+    requires_human: bool,
+    body: String,
+    refs: Vec<String>,
+) -> crate::error::Result<()> {
+    let msg_id = format!("msg_{}", Uuid::new_v4().simple());
+    let reply_msg = AgentMessage {
+        v: 1,
+        id: msg_id,
+        thread_id: incoming.thread_id.clone(),
+        reply_to: Some(incoming.id.clone()),
+        msg_type,
+        project: incoming.project.clone(),
+        hop: incoming.hop.saturating_add(1),
+        max_hops: incoming.max_hops,
+        requires_human,
+        body,
+        refs,
+        group: None,
+    };
+
+    store.insert_message(
+        &reply_msg,
+        &format!("local:{local_target_name}"),
+        &format!("local:{from_label}"),
+        "in",
+        "unread",
+    )?;
+    let _ = notify_thread.send(incoming.thread_id.clone());
+    Ok(())
+}
